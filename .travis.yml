@@ -7,14 +7,16 @@ rvm:
   - ruby-head
 
 gemfile:
- - Gemfile
+  - Gemfile
 
 branches:
   only:
     - master
 
 before_install: gem update bundler
-script: bundle exec rake test
+script:
+  - bundle exec rake test
+  - bundle exec rubocop
 
 sudo: false
 
