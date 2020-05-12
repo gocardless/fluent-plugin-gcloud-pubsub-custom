@@ -1,4 +1,6 @@
 ---
+inherit_from: .rubocop_todo.yml
+
 AllCops:
   # Matches the minimum version in .travis.yml
   TargetRubyVersion: 2.4
@@ -33,3 +35,12 @@ Style/HashTransformValues:
 
 Style/SlicingWithRange:
   Enabled: true
+
+Style/TrailingCommaInHashLiteral:
+  EnforcedStyleForMultiline: comma
+
+Style/TrailingCommaInArrayLiteral:
+  EnforcedStyleForMultiline: comma
+
+Style/TrailingCommaInArguments:
+  EnforcedStyleForMultiline: comma
