@@ -1,13 +1,15 @@
-require 'bundler'
+# frozen_string_literal: true
+
+require "bundler"
 Bundler::GemHelper.install_tasks
 
-require 'rake/testtask'
+require "rake/testtask"
 
 Rake::TestTask.new(:test) do |test|
-  test.libs << 'lib' << 'test'
-  test.test_files = FileList['test/plugin/test_*.rb']
+  test.libs << "lib" << "test"
+  test.test_files = FileList["test/plugin/test_*.rb"]
   test.verbose = true
   test.warning = false
 end
 
-task :default => [:build]
+task default: [:build]
