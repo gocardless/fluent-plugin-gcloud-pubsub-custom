@@ -1,4 +1,6 @@
-require 'google/cloud/pubsub'
+# frozen_string_literal: true
+
+require "google/cloud/pubsub"
 
 module Fluent
   module GcloudPubSub
@@ -9,12 +11,13 @@ module Fluent
 
     class Message
       attr_reader :message, :attributes
-      def initialize(message, attributes={})
+
+      def initialize(message, attributes = {})
         @message = message
         @attributes = attributes
       end
 
-      def bytesize()
+      def bytesize
         attr_size = 0
         @attributes.each do |key, val|
           attr_size += key.bytesize + val.bytesize
@@ -31,15 +34,11 @@ module Fluent
       end
 
       def topic(topic_name)
-        return @topics[topic_name] if @topics.has_key? topic_name
+        return @topics[topic_name] if @topics.key? topic_name
 
         client = @pubsub.topic topic_name
-        if client.nil? && @autocreate_topic
-          client = @pubsub.create_topic topic_name
-        end
-        if client.nil?
-          raise Error.new "topic:#{topic_name} does not exist."
-        end
+        client = @pubsub.create_topic topic_name if client.nil? && @autocreate_topic
+        raise Error, "topic:#{topic_name} does not exist." if client.nil?
 
         @topics[topic_name] = client
         client
@@ -51,8 +50,8 @@ module Fluent
             batch.publish m.message, m.attributes
           end
         end
-      rescue Google::Cloud::UnavailableError, Google::Cloud::DeadlineExceededError, Google::Cloud::InternalError => ex
-        raise RetryableError.new "Google api returns error:#{ex.class.to_s} message:#{ex.to_s}"
+      rescue Google::Cloud::UnavailableError, Google::Cloud::DeadlineExceededError, Google::Cloud::InternalError => e
+        raise RetryableError, "Google api returns error:#{e.class} message:#{e}"
       end
     end
 
@@ -65,19 +64,19 @@ module Fluent
           topic = pubsub.topic topic_name
           @client = topic.subscription subscription_name
         end
-        raise Error.new "subscription:#{subscription_name} does not exist." if @client.nil?
+        raise Error, "subscription:#{subscription_name} does not exist." if @client.nil?
       end
 
       def pull(immediate, max)
         @client.pull immediate: immediate, max: max
-      rescue Google::Cloud::UnavailableError, Google::Cloud::DeadlineExceededError, Google::Cloud::InternalError => ex
-        raise RetryableError.new "Google pull api returns error:#{ex.class.to_s} message:#{ex.to_s}"
+      rescue Google::Cloud::UnavailableError, Google::Cloud::DeadlineExceededError, Google::Cloud::InternalError => e
+        raise RetryableError, "Google pull api returns error:#{e.class} message:#{e}"
       end
 
       def acknowledge(messages)
         @client.acknowledge messages
-      rescue Google::Cloud::UnavailableError, Google::Cloud::DeadlineExceededError, Google::Cloud::InternalError => ex
-        raise RetryableError.new "Google acknowledge api returns error:#{ex.class.to_s} message:#{ex.to_s}"
+      rescue Google::Cloud::UnavailableError, Google::Cloud::DeadlineExceededError, Google::Cloud::InternalError => e
+        raise RetryableError, "Google acknowledge api returns error:#{e.class} message:#{e}"
       end
     end
   end
