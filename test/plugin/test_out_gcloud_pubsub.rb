@@ -3,6 +3,9 @@
 
 require_relative "../helper"
 require 'fluent/plugin/compressable'
+require "zlib"
+
+require_relative "../test_helper"
 require "fluent/test/driver/output"
 require "fluent/test/helpers"
 require "json"
@@ -78,6 +81,17 @@ class GcloudPubSubOutputTest < Test::Unit::TestCase
       ])
 
       assert_equal("dest-project-test", d.instance.dest_project)
+    end
+
+    test "'attribute_keys' cannot be used with 'compress_batches'" do
+      assert_raise(Fluent::ConfigError.new(":attribute_keys cannot be used when compression is enabled")) do
+        create_driver(%(
+          project project-test
+          topic topic-test
+          attribute_keys attr-test
+          compress_batches true
+        ))
+      end
     end
   end
 
@@ -348,6 +362,71 @@ class GcloudPubSubOutputTest < Test::Unit::TestCase
       attributes = formatted[1]
       assert_equal(attributes, {"a" => "foo", "key" => "value"})
     end
+
+    test "compressed batch" do
+      d = create_driver(%(
+        project project-test
+        topic topic-test
+        key key-test
+        compress_batches true
+        max_messages 2
+      ))
+
+      # This is a little hacky: we're doing assertions via matchers.
+      # The RR library doesn't seem to provide an easy alternative to this. The
+      # downside of this approach is that you will not receive a nice diff if
+      # the expectation fails.
+      first_batch = [
+        '{"foo":"bar"}' + "\n",
+        '{"foo":123}' + "\n",
+      ]
+      @publisher.publish(ZlibCompressedBatch.new(first_batch), { compression_algorithm: "zlib" }).once
+
+      second_batch = [
+        '{"msg":"last"}' + "\n",
+      ]
+      @publisher.publish(ZlibCompressedBatch.new(second_batch), { compression_algorithm: "zlib" }).once
+
+      d.run(default_tag: "test") do
+        d.feed({ "foo" => "bar" })
+        d.feed({ "foo" => 123 })
+        d.feed({ "msg" => "last" })
+      end
+    end
   end
   # rubocop:enable Style/UnpackFirst
+end
+
+private
+
+# A matcher for a compressed batch of messages
+# https://www.rubydoc.info/gems/rr/1.2.1/RR/WildcardMatchers
+class ZlibCompressedBatch
+  attr_reader :expected_messages
+
+  def initialize(expected_messages)
+    @expected_messages = expected_messages
+  end
+
+  def wildcard_match?(other)
+    return true if self == other
+
+    return false unless other.is_a?(String)
+
+    decompressed = Zlib::Inflate.inflate(other)
+    other_messages = decompressed.split(30.chr)
+
+    other_messages == expected_messages
+  end
+
+  def ==(other)
+    other.is_a?(self.class) &&
+      other.expected_messages == expected_messages
+  end
+
+  alias eql? ==
+
+  def inspect
+    "contains compressed messages: #{expected_messages}"
+  end
 end

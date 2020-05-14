@@ -29,6 +29,10 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       DummyInvalidMsgData.new
     end
 
+    def data
+      message.data
+    end
+
     def attributes
       { "attr_1" => "a", "attr_2" => "b" }
     end
@@ -139,13 +143,42 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
         '{"foo": "bar"}'
       end
     end
+
     class DummyMessage
       def message
         DummyMsgData.new
       end
 
+      def data
+        message.data
+      end
+
       def attributes
         { "attr_1" => "a", "attr_2" => "b" }
+      end
+    end
+
+    class DummyCompressedMessageData
+      attr_reader :data
+
+      def initialize(messages)
+        @data = Zlib::Deflate.deflate(messages.join(30.chr))
+      end
+    end
+
+    class DummyCompressedMessage
+      attr_reader :message
+
+      def initialize(messages)
+        @message = DummyCompressedMessageData.new(messages)
+      end
+
+      def data
+        message.data
+      end
+
+      def attributes
+        { "compression_algorithm" => "zlib" }
       end
     end
 
@@ -165,6 +198,10 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
 
       def message
         DummyMsgDataWithTagKey.new @tag
+      end
+
+      def data
+        message.data
       end
 
       def attributes
@@ -301,6 +338,30 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
         assert_equal("test", tag)
         assert_equal({"foo" => "bar"}, record)
       end
+    end
+
+    test "compressed batch of messages" do
+      original_messages = [
+        { foo: "bar" },
+        { baz: "qux" },
+      ]
+      messages = Array.new(1, DummyCompressedMessage.new(original_messages.map(&:to_json)))
+
+      @subscriber.pull(immediate: true, max: 100).once { messages }
+      @subscriber.acknowledge(messages).at_least(1)
+
+      d = create_driver
+      d.run(expect_emits: 1, timeout: 3)
+      emits = d.events
+
+      output_records = emits.map do |e|
+        # Pick out only the record element, i.e. ignore the time and tag
+        record = e[2]
+        # Convert the keys from strings to symbols, to allow for strict comparison
+        record.map { |k, v| [k.to_sym, v] }.to_h
+      end
+
+      assert_equal(original_messages, output_records)
     end
 
     test "invalid messages with parse_error_action warning" do

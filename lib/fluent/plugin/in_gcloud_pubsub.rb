@@ -281,21 +281,43 @@ module Fluent::Plugin
       end
 
       messages.each do |m|
-        line = @decompress.call(m.message.data).chomp
-        attributes = m.attributes
-        @parser.parse(line) do |time, record|
-          if time && record
-            @attribute_keys.each do |key|
-              record[key] = attributes[key]
-            end
+        if @decompress == method(:no_decompress)
+          lines_attributes = Fluent::GcloudPubSub::MessageUnpacker.unpack(m)
 
-            event_streams[@extract_tag.call(record)].add(time, record)
-          else
-            case @parse_error_action
-            when :exception
-              raise FailedParseError, "pattern not match: #{line}"
+          lines_attributes.each do |line, attributes|
+            @parser.parse(line) do |time, record|
+              if time && record
+                @attribute_keys.each do |key|
+                  record[key] = attributes[key]
+                end
+
+                event_streams[@extract_tag.call(record)].add(time, record)
+              else
+                case @parse_error_action
+                when :exception
+                  raise FailedParseError, "pattern not match: #{line}"
+                else
+                  log.warn "pattern not match", record: line
+                end
+              end
+            end
+          end
+        elsif line = @decompress.call(m.message.data).chomp
+          attributes = m.attributes
+          @parser.parse(line) do |time, record|
+            if time && record
+              @attribute_keys.each do |key|
+                record[key] = attributes[key]
+              end
+
+              event_streams[@extract_tag.call(record)].add(time, record)
             else
-              log.warn "pattern not match", record: line
+              case @parse_error_action
+              when :exception
+                raise FailedParseError, "pattern not match: #{line}"
+              else
+                log.warn "pattern not match", record: line
+              end
             end
           end
         end
