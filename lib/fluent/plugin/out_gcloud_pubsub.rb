@@ -31,10 +31,13 @@ module Fluent::Plugin
     config_param :max_total_size, :integer, default: 9_800_000 # 9.8MB
     desc "Limit bytesize per message."
     config_param :max_message_size, :integer, default: 4_000_000 # 4MB
-    desc "Publishing the set field as an attribute"
+    desc "Extract these fields from the record and send them as attributes on the Pub/Sub message. " \
+         "Cannot be set if compress_batches is enabled."
     config_param :attribute_keys, :array, default: []
     desc "The prefix for Prometheus metric names"
     config_param :metric_prefix, :string, default: "fluentd_output_gcloud_pubsub"
+    desc "If set to `true`, messages will be batched and compressed before publication"
+    config_param :compress_batches, :bool, default: false
 
     config_section :buffer do
       config_set_default :@type, DEFAULT_BUFFER_TYPE
@@ -50,6 +53,15 @@ module Fluent::Plugin
       super
       placeholder_validate!(:topic, @topic)
       @formatter = formatter_create
+
+      if @compress_batches && !@attribute_keys.empty?
+        # The attribute_keys option is implemented by extracting keys from the
+        # record and setting them on the Pub/Sub message.
+        # This is not possible in compressed mode, because we're sending just a
+        # single Pub/Sub message that comprises many records, therefore the
+        # attribute keys would clash.
+        raise Fluent::ConfigError, ":attribute_keys cannot be used when compression is enabled"
+      end
 
       @messages_published =
         Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{@metric_prefix}_messages_published_per_batch") do
@@ -70,12 +82,22 @@ module Fluent::Plugin
             [100, 1000, 10_000, 100_000, 1_000_000, 5_000_000, 10_000_000],
           )
         end
+
+      @compression_enabled =
+        Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{@metric_prefix}_compression_enabled") do
+          ::Prometheus::Client.registry.gauge(
+            :"#{@metric_prefix}_compression_enabled",
+            "Whether compression/batching is enabled",
+            {},
+          )
+        end
+      @compression_enabled.set(common_labels, @compress_batches ? 1 : 0)
     end
     # rubocop:enable Metrics/MethodLength
 
     def start
       super
-      @publisher = Fluent::GcloudPubSub::Publisher.new @project, @key, @autocreate_topic
+      @publisher = Fluent::GcloudPubSub::Publisher.new @project, @key, @autocreate_topic, @metric_prefix
     end
 
     def format(tag, time, record)
@@ -135,7 +157,7 @@ module Fluent::Plugin
       @messages_published.observe(common_labels, messages.length)
       @bytes_published.observe(common_labels, size)
 
-      @publisher.publish(topic, messages)
+      @publisher.publish(topic, messages, @compress_batches)
     end
 
     def common_labels

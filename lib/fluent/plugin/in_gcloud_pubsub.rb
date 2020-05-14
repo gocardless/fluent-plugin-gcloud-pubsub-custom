@@ -40,7 +40,7 @@ module Fluent::Plugin
     config_param :return_immediately, :bool, default: true
     desc "Set number of threads to pull messages."
     config_param :pull_threads, :integer, default: 1
-    desc "Specify the key of the attribute to be acquired as a record"
+    desc "Acquire these fields from attributes on the Pub/Sub message and merge them into the record"
     config_param :attribute_keys,     :array, default: []
     desc "Set error type when parsing messages fails."
     config_param :parse_error_action, :enum, default: :exception, list: %i[exception warning]
@@ -263,21 +263,23 @@ module Fluent::Plugin
       end
 
       messages.each do |m|
-        line = m.message.data.chomp
-        attributes = m.attributes
-        @parser.parse(line) do |time, record|
-          if time && record
-            @attribute_keys.each do |key|
-              record[key] = attributes[key]
-            end
+        lines_attributes = Fluent::GcloudPubSub::MessageUnpacker.unpack(m)
 
-            event_streams[@extract_tag.call(record)].add(time, record)
-          else
-            case @parse_error_action
-            when :exception
-              raise FailedParseError, "pattern not match: #{line}"
+        lines_attributes.each do |line, attributes|
+          @parser.parse(line) do |time, record|
+            if time && record
+              @attribute_keys.each do |key|
+                record[key] = attributes[key]
+              end
+
+              event_streams[@extract_tag.call(record)].add(time, record)
             else
-              log.warn "pattern not match", record: line
+              case @parse_error_action
+              when :exception
+                raise FailedParseError, "pattern not match: #{line}"
+              else
+                log.warn "pattern not match", record: line
+              end
             end
           end
         end

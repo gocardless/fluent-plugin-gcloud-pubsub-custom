@@ -60,6 +60,7 @@ Use `gcloud_pubsub` output plugin.
   max_messages 1000
   max_total_size 9800000
   max_message_size 4000000
+  compress_batches false
   <buffer>
     @type memory
     flush_interval 1s
@@ -92,9 +93,11 @@ Use `gcloud_pubsub` output plugin.
 - `max_message_size` (optional, default: `4000000` = `4MB`)
   - Messages exceeding `max_message_size` are not published because Pub/Sub clients cannot receive it.
 - `attribute_keys` (optional, default: `[]`)
-  - Publishing the set fields as attributes.
+  - Extract these fields from the record and send them as attributes on the Pub/Sub message. Cannot be set if compress_batches is enabled.
 - `metric_prefix` (optional, default: `fluentd_output_gcloud_pubsub`)
   - The prefix for Prometheus metric names
+- `compress_batches` (optional, default: `false`)
+  - If set to `true`, messages will be batched and compressed before publication. See [message compression](#message-compression) for details.
 
 ### Pull messages
 
@@ -149,7 +152,7 @@ Use `gcloud_pubsub` input plugin.
 - `pull_threads` (optional, default: `1`)
   - Set number of threads to pull messages.
 - `attribute_keys` (optional, default: `[]`)
-  - Specify the key of the attribute to be emitted as the field of record.
+  - Acquire these fields from attributes on the Pub/Sub message and merge them into the record.
 - `parse_error_action` (optional, default: `exception`)
   - Set error type when parsing messages fails.
     - `exception`: Raise exception. Messages are not acknowledged.
@@ -163,15 +166,61 @@ Use `gcloud_pubsub` input plugin.
 - `rpc_port` (optional, default: `24680`)
   - Port for HTTP RPC.
 
+## Message compression
+
+The `compress_batches` option can be used to enable the compression of messages
+_before_ publication to Pub/Sub.
+
+This works by collecting the buffered messages, taking up to `max_total_size` or
+`max_message_size` input records, then compressing them with Zlib (i.e.
+gzip/Deflate) before publishing them as a single message to the Pub/Sub topic.
+
+When transporting large volumes of records via Pub/Sub, e.g. multiple Terabytes
+per month, this can lead to significant cost savings, as typically the CPU time
+required to compress the messages will be minimal in comparison to the Pub/Sub
+costs.
+
+The compression ratio achievable will vary largely depending on the homogeneity
+of the input records, but typically will be 50% at the very minimum and often
+around 80-90%.
+
+In order to achieve good compression, consider the following:
+- Ensure that the buffer is being filled with a reasonable batch of messages: do
+  not use `flush_mode immediate`, and keep the `flush_interval` value
+  sufficiently high. Use the Prometheus metrics to determine how many records
+  are being published per message.
+- Keep the `max_messages` and `max_message_size` values high (the defaults are
+  optimal).
+- If there are many different sources of messages being mixed and routed to a
+  single `gcloud_pubsub` output, use multiple outputs (which will each have
+  their own buffer) through tagging or [labelling][fluentd-labels].
+
+[fluentd-labels]: https://docs.fluentd.org/quickstart/life-of-a-fluentd-event#labels
+
+The receiving end must be able to decode these compressed batches of messages,
+which it can determine via an attribute set on the Pub/Sub message. The
+`gcloud_pubsub` input plugin will do this transparently, decompressing any
+messages which contain a batch of records and normally processing any messages
+which represent just a single record.
+Therefore, as long as all of the receivers are updated with support for
+compressed batches first, it's then possible to gradually roll out this feature.
+
 ## Prometheus metrics
 
 The input and output plugins expose several metrics in order to monitor
 performance:
 
+- `fluentd_output_gcloud_pubsub_compression_enabled`
+  - Gauge: Whether compression/batching is enabled
 - `fluentd_output_gcloud_pubsub_messages_published_per_batch`
   - Histogram: Number of records published to Pub/Sub per buffer flush
 - `fluentd_output_gcloud_pubsub_messages_published_bytes`
   - Histogram: Total size in bytes of the records published to Pub/Sub
+- `fluentd_output_gcloud_pubsub_messages_compression_duration_seconds`
+  - Histogram: Time taken to compress a batch of messages
+- `fluentd_output_gcloud_pubsub_messages_messages_compressed_size_per_original_size_ratio`
+  - Histogram: Compression ratio achieved on a batch of messages, expressed in
+    terms of space saved.
 
 - `fluentd_input_gcloud_pubsub_pull_errors_total`
   - Counter: Errors encountered while pulling or processing messages (split by a
