@@ -2,7 +2,9 @@
 
 require "fluent/plugin/output"
 require "fluent/plugin/gcloud_pubsub/client"
+require "fluent/plugin/gcloud_pubsub/metrics"
 require "fluent/plugin_helper/inject"
+require "prometheus/client"
 
 module Fluent::Plugin
   class GcloudPubSubOutput < Output
@@ -31,6 +33,8 @@ module Fluent::Plugin
     config_param :max_message_size, :integer, default: 4_000_000 # 4MB
     desc "Publishing the set field as an attribute"
     config_param :attribute_keys, :array, default: []
+    desc "The prefix for Prometheus metric names"
+    config_param :metric_prefix, :string, default: "fluentd_output_gcloud_pubsub"
 
     config_section :buffer do
       config_set_default :@type, DEFAULT_BUFFER_TYPE
@@ -40,12 +44,34 @@ module Fluent::Plugin
       config_set_default :@type, DEFAULT_FORMATTER_TYPE
     end
 
+    # rubocop:disable Metrics/MethodLength
     def configure(conf)
       compat_parameters_convert(conf, :buffer, :formatter)
       super
       placeholder_validate!(:topic, @topic)
       @formatter = formatter_create
+
+      @messages_published =
+        Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{@metric_prefix}_messages_published_per_batch") do
+          ::Prometheus::Client.registry.histogram(
+            :"#{@metric_prefix}_messages_published_per_batch",
+            "Number of records published to Pub/Sub per buffer flush",
+            {},
+            [1, 10, 50, 100, 250, 500, 1000],
+          )
+        end
+
+      @bytes_published =
+        Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{@metric_prefix}_messages_published_bytes") do
+          ::Prometheus::Client.registry.histogram(
+            :"#{@metric_prefix}_messages_published_bytes",
+            "Total size in bytes of the records published to Pub/Sub",
+            {},
+            [100, 1000, 10_000, 100_000, 1_000_000, 5_000_000, 10_000_000],
+          )
+        end
     end
+    # rubocop:enable Metrics/MethodLength
 
     def start
       super
@@ -103,8 +129,17 @@ module Fluent::Plugin
     private
 
     def publish(topic, messages)
-      log.debug "send message topic:#{topic} length:#{messages.length} size:#{messages.map(&:bytesize).inject(:+)}"
+      size = messages.map(&:bytesize).inject(:+)
+      log.debug "send message topic:#{topic} length:#{messages.length} size:#{size}"
+
+      @messages_published.observe(common_labels, messages.length)
+      @bytes_published.observe(common_labels, size)
+
       @publisher.publish(topic, messages)
+    end
+
+    def common_labels
+      { topic: @topic }
     end
   end
 end

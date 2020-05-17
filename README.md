@@ -93,6 +93,8 @@ Use `gcloud_pubsub` output plugin.
   - Messages exceeding `max_message_size` are not published because Pub/Sub clients cannot receive it.
 - `attribute_keys` (optional, default: `[]`)
   - Publishing the set fields as attributes.
+- `metric_prefix` (optional, default: `fluentd_output_gcloud_pubsub`)
+  - The prefix for Prometheus metric names
 
 ### Pull messages
 
@@ -152,12 +154,32 @@ Use `gcloud_pubsub` input plugin.
   - Set error type when parsing messages fails.
     - `exception`: Raise exception. Messages are not acknowledged.
     - `warning`: Only logging as warning.
+- `metric_prefix` (optional, default: `fluentd_input_gcloud_pubsub`)
+  - The prefix for Prometheus metric names
 - `enable_rpc` (optional, default: `false`)
   - If `true` is specified, HTTP RPC to stop or start pulling message is enabled.
 - `rpc_bind` (optional, default: `0.0.0.0`)
   - Bind IP address for HTTP RPC.
 - `rpc_port` (optional, default: `24680`)
   - Port for HTTP RPC.
+
+## Prometheus metrics
+
+The input and output plugins expose several metrics in order to monitor
+performance:
+
+- `fluentd_output_gcloud_pubsub_messages_published_per_batch`
+  - Histogram: Number of records published to Pub/Sub per buffer flush
+- `fluentd_output_gcloud_pubsub_messages_published_bytes`
+  - Histogram: Total size in bytes of the records published to Pub/Sub
+
+- `fluentd_input_gcloud_pubsub_pull_errors_total`
+  - Counter: Errors encountered while pulling or processing messages (split by a
+    `retryable` label)
+- `fluentd_input_gcloud_pubsub_messages_pulled`
+  - Histogram: Number of Pub/Sub messages pulled by the subscriber on each invocation
+- `fluentd_input_gcloud_pubsub_messages_pulled_bytes`
+  - Histogram: Total size in bytes of the Pub/Sub messages pulled by the subscriber on each invocation
 
 ## Contributing
 
