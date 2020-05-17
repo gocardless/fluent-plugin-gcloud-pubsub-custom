@@ -19,6 +19,9 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency "fluentd", [">= 0.14.15", "< 2"]
   gem.add_runtime_dependency "google-cloud-pubsub", "~> 2.3.1"
 
+  # Use the same version constraint as fluent-plugin-prometheus currently specifies
+  gem.add_runtime_dependency "prometheus-client", "< 0.10"
+
   gem.add_development_dependency "bundler"
   gem.add_development_dependency "rake"
   gem.add_development_dependency "rubocop", "~>0.83"

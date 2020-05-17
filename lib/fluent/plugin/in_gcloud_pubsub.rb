@@ -3,11 +3,12 @@
 require "json"
 require "webrick"
 
-require 'fluent/plugin/compressable'
-require 'fluent/plugin/input'
-require 'fluent/plugin/parser'
+require "fluent/plugin/compressable"
+require "fluent/plugin/input"
+require "fluent/plugin/parser"
 
 require "fluent/plugin/gcloud_pubsub/client"
+require "fluent/plugin/gcloud_pubsub/metrics"
 
 module Fluent::Plugin
   class GcloudPubSubInput < Input
@@ -46,6 +47,8 @@ module Fluent::Plugin
     config_param :attribute_keys,     :array, default: []
     desc "Set error type when parsing messages fails."
     config_param :parse_error_action, :enum, default: :exception, list: %i[exception warning]
+    desc "The prefix for Prometheus metric names"
+    config_param :metric_prefix, :string, default: "fluentd_input_gcloud_pubsub"
     # for HTTP RPC
     desc "If `true` is specified, HTTP RPC to stop or start pulling message is enabled."
     config_param :enable_rpc, :bool, default: false
@@ -109,6 +112,7 @@ module Fluent::Plugin
       end
     end
 
+    # rubocop:disable Metrics/MethodLength
     def configure(conf)
       compat_parameters_convert(conf, :parser)
       super
@@ -128,7 +132,37 @@ module Fluent::Plugin
                     else
                       method(:no_decompress)
                     end
+
+      @messages_pulled =
+        Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{@metric_prefix}_messages_pulled") do
+          ::Prometheus::Client.registry.histogram(
+            :"#{@metric_prefix}_messages_pulled",
+            "Number of Pub/Sub messages pulled by the subscriber on each invocation",
+            {},
+            [0, 1, 10, 50, 100, 250, 500, 1000],
+          )
+        end
+
+      @messages_pulled_bytes =
+        Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{@metric_prefix}_messages_pulled_bytes") do
+          ::Prometheus::Client.registry.histogram(
+            :"#{@metric_prefix}_messages_pulled_bytes",
+            "Total size in bytes of the Pub/Sub messages pulled by the subscriber on each invocation",
+            {},
+            [100, 1000, 10_000, 100_000, 1_000_000, 5_000_000, 10_000_000],
+          )
+        end
+
+      @pull_errors =
+        Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{@metric_prefix}_pull_errors_total") do
+          ::Prometheus::Client.registry.counter(
+            :"#{@metric_prefix}_pull_errors_total",
+            "Errors encountered while pulling or processing messages",
+            {},
+          )
+        end
     end
+    # rubocop:enable Metrics/MethodLength
 
     def start
       super
@@ -217,18 +251,26 @@ module Fluent::Plugin
 
     def _subscribe
       messages = @subscriber.pull @return_immediately, @max_messages
+      @messages_pulled.observe(common_labels, messages.size)
       if messages.empty?
         log.debug "no messages are pulled"
         return
       end
+
+      messages_size = messages.sum do |message|
+        message.data.bytesize + message.attributes.sum { |k, v| k.bytesize + v.bytesize }
+      end
+      @messages_pulled_bytes.observe(common_labels, messages_size)
 
       process messages
       @subscriber.acknowledge messages
 
       log.debug "#{messages.length} message(s) processed"
     rescue Fluent::GcloudPubSub::RetryableError => e
+      @pull_errors.increment(common_labels.merge({ retryable: true }))
       log.warn "Retryable error occurs. Fluentd will retry.", error_message: e.to_s, error_class: e.class.to_s
     rescue StandardError => e
+      @pull_errors.increment(common_labels.merge({ retryable: false }))
       log.error "unexpected error", error_message: e.to_s, error_class: e.class.to_s
       log.error_backtrace e.backtrace
     end
@@ -266,6 +308,10 @@ module Fluent::Plugin
           router.emit_stream(tag, es)
         end
       end
+    end
+
+    def common_labels
+      { subscription: @subscription }
     end
   end
 end
