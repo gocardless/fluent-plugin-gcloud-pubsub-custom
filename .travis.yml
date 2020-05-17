@@ -13,6 +13,7 @@ gemfile:
 branches:
   only:
     - master
+    - gocardless
 
 before_install: gem update bundler
 script:
