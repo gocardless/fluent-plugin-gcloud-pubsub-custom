@@ -1,20 +1,23 @@
 language: ruby
 
 rvm:
-  - 2.4.6
-  - 2.5.5
-  - 2.6.3
+  - 2.5
+  - 2.6
+  - 2.7
   - ruby-head
 
 gemfile:
- - Gemfile
+  - Gemfile
 
 branches:
   only:
     - master
+    - gocardless
 
 before_install: gem update bundler
-script: bundle exec rake test
+script:
+  - bundle exec rake test
+  - bundle exec rubocop
 
 sudo: false
 

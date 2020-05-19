@@ -1,42 +1,49 @@
-require 'net/http'
-require 'json'
+# frozen_string_literal: true
+
+require "net/http"
+require "json"
 
 require_relative "../test_helper"
 require "fluent/test/driver/input"
 
 class GcloudPubSubInputTest < Test::Unit::TestCase
-  CONFIG = %[
+  CONFIG = %(
       tag test
       project project-test
       topic topic-test
       subscription subscription-test
       key key-test
-  ]
+  )
 
-  DEFAULT_HOST = '127.0.0.1'
-  DEFAULT_PORT = 24680
+  DEFAULT_HOST = "127.0.0.1"
+  DEFAULT_PORT = 24_680
 
   class DummyInvalidMsgData
     def data
-      'foo:bar'
+      "foo:bar"
     end
   end
   class DummyInvalidMessage
     def message
       DummyInvalidMsgData.new
     end
+
+    def data
+      message.data
+    end
+
     def attributes
-      {"attr_1" => "a", "attr_2" => "b"}
+      { "attr_1" => "a", "attr_2" => "b" }
     end
   end
 
-  def create_driver(conf=CONFIG)
+  def create_driver(conf = CONFIG)
     Fluent::Test::Driver::Input.new(Fluent::Plugin::GcloudPubSubInput).configure(conf)
   end
 
   def http_get(path)
     http = Net::HTTP.new(DEFAULT_HOST, DEFAULT_PORT)
-    req = Net::HTTP::Get.new(path, {'Content-Type' => 'application/x-www-form-urlencoded'})
+    req = Net::HTTP::Get.new(path, { "Content-Type" => "application/x-www-form-urlencoded" })
     http.request(req)
   end
 
@@ -44,9 +51,9 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
     Fluent::Test.setup
   end
 
-  sub_test_case 'configure' do
-    test 'all params are configured' do
-      d = create_driver(%[
+  sub_test_case "configure" do
+    test "all params are configured" do
+      d = create_driver(%(
         tag test
         project project-test
         topic topic-test
@@ -60,24 +67,24 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
         enable_rpc true
         rpc_bind 127.0.0.1
         rpc_port 24681
-      ])
+      ))
 
-      assert_equal('test', d.instance.tag)
-      assert_equal('project-test', d.instance.project)
-      assert_equal('topic-test', d.instance.topic)
-      assert_equal('subscription-test', d.instance.subscription)
-      assert_equal('key-test', d.instance.key)
+      assert_equal("test", d.instance.tag)
+      assert_equal("project-test", d.instance.project)
+      assert_equal("topic-test", d.instance.topic)
+      assert_equal("subscription-test", d.instance.subscription)
+      assert_equal("key-test", d.instance.key)
       assert_equal(2.0, d.instance.pull_interval)
       assert_equal(1000, d.instance.max_messages)
       assert_equal(true, d.instance.return_immediately)
       assert_equal(3, d.instance.pull_threads)
-      assert_equal(['attr-test'], d.instance.attribute_keys)
+      assert_equal(["attr-test"], d.instance.attribute_keys)
       assert_equal(true, d.instance.enable_rpc)
-      assert_equal('127.0.0.1', d.instance.rpc_bind)
-      assert_equal(24681, d.instance.rpc_port)
+      assert_equal("127.0.0.1", d.instance.rpc_bind)
+      assert_equal(24_681, d.instance.rpc_port)
     end
 
-    test 'default values are configured' do
+    test "default values are configured" do
       d = create_driver
       assert_equal(5.0, d.instance.pull_interval)
       assert_equal(100, d.instance.max_messages)
@@ -85,21 +92,21 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       assert_equal(1, d.instance.pull_threads)
       assert_equal([], d.instance.attribute_keys)
       assert_equal(false, d.instance.enable_rpc)
-      assert_equal('0.0.0.0', d.instance.rpc_bind)
-      assert_equal(24680, d.instance.rpc_port)
+      assert_equal("0.0.0.0", d.instance.rpc_bind)
+      assert_equal(24_680, d.instance.rpc_port)
     end
   end
 
-  sub_test_case 'start' do
+  sub_test_case "start" do
     setup do
       @topic_mock = mock!
-      @pubsub_mock = mock!.topic('topic-test').at_least(1) { @topic_mock }
+      @pubsub_mock = mock!.topic("topic-test").at_least(1) { @topic_mock }
       stub(Google::Cloud::Pubsub).new { @pubsub_mock }
     end
 
-    test '40x error occurred on connecting to Pub/Sub' do
-      @topic_mock.subscription('subscription-test').once do
-        raise Google::Cloud::NotFoundError.new('TEST')
+    test "40x error occurred on connecting to Pub/Sub" do
+      @topic_mock.subscription("subscription-test").once do
+        raise Google::Cloud::NotFoundError, "TEST"
       end
 
       d = create_driver
@@ -108,9 +115,9 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       end
     end
 
-    test '50x error occurred on connecting to Pub/Sub' do
-      @topic_mock.subscription('subscription-test').once do
-        raise Google::Cloud::UnavailableError.new('TEST')
+    test "50x error occurred on connecting to Pub/Sub" do
+      @topic_mock.subscription("subscription-test").once do
+        raise Google::Cloud::UnavailableError, "TEST"
       end
 
       d = create_driver
@@ -119,8 +126,8 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       end
     end
 
-    test 'subscription is nil' do
-      @topic_mock.subscription('subscription-test').once { nil }
+    test "subscription is nil" do
+      @topic_mock.subscription("subscription-test").once { nil }
 
       d = create_driver
       assert_raise Fluent::GcloudPubSub::Error do
@@ -129,18 +136,48 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
     end
   end
 
-  sub_test_case 'emit' do
+  sub_test_case "emit" do
     class DummyMsgData
       def data
         '{"foo": "bar"}'
       end
     end
+
     class DummyMessage
       def message
         DummyMsgData.new
       end
+
+      def data
+        message.data
+      end
+
       def attributes
-        {"attr_1" => "a", "attr_2" => "b"}
+        { "attr_1" => "a", "attr_2" => "b" }
+      end
+    end
+
+    class DummyCompressedMessageData
+      attr_reader :data
+
+      def initialize(messages)
+        @data = Zlib::Deflate.deflate(messages.join(30.chr))
+      end
+    end
+
+    class DummyCompressedMessage
+      attr_reader :message
+
+      def initialize(messages)
+        @message = DummyCompressedMessageData.new(messages)
+      end
+
+      def data
+        message.data
+      end
+
+      def attributes
+        { "compression_algorithm" => "zlib" }
       end
     end
 
@@ -148,6 +185,7 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       def initialize(tag)
         @tag = tag
       end
+
       def data
         '{"foo": "bar", "test_tag_key": "' + @tag + '"}'
       end
@@ -156,22 +194,28 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       def initialize(tag)
         @tag = tag
       end
+
       def message
         DummyMsgDataWithTagKey.new @tag
       end
+
+      def data
+        message.data
+      end
+
       def attributes
-        {"attr_1" => "a", "attr_2" => "b"}
+        { "attr_1" => "a", "attr_2" => "b" }
       end
     end
 
     setup do
       @subscriber = mock!
-      @topic_mock = mock!.subscription('subscription-test') { @subscriber }
-      @pubsub_mock = mock!.topic('topic-test') { @topic_mock }
+      @topic_mock = mock!.subscription("subscription-test") { @subscriber }
+      @pubsub_mock = mock!.topic("topic-test") { @topic_mock }
       stub(Google::Cloud::Pubsub).new { @pubsub_mock }
     end
 
-    test 'empty' do
+    test "empty" do
       @subscriber.pull(immediate: true, max: 100).at_least(1) { [] }
       @subscriber.acknowledge.times(0)
 
@@ -181,7 +225,7 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       assert_true d.events.empty?
     end
 
-    test 'simple' do
+    test "simple" do
       messages = Array.new(1, DummyMessage.new)
       @subscriber.pull(immediate: true, max: 100).at_least(1) { messages }
       @subscriber.acknowledge(messages).at_least(1)
@@ -190,14 +234,14 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       d.run(expect_emits: 1, timeout: 3)
       emits = d.events
 
-      assert(1 <= emits.length)
-      emits.each do |tag, time, record|
+      assert(emits.length >= 1)
+      emits.each do |tag, _time, record|
         assert_equal("test", tag)
-        assert_equal({"foo" => "bar"}, record)
+        assert_equal({ "foo" => "bar" }, record)
       end
     end
 
-    test 'multithread' do
+    test "multithread" do
       messages = Array.new(1, DummyMessage.new)
       @subscriber.pull(immediate: true, max: 100).at_least(2) { messages }
       @subscriber.acknowledge(messages).at_least(2)
@@ -206,18 +250,18 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       d.run(expect_emits: 2, timeout: 1)
       emits = d.events
 
-      assert(2 <= emits.length)
-      emits.each do |tag, time, record|
+      assert(emits.length >= 2)
+      emits.each do |tag, _time, record|
         assert_equal("test", tag)
-        assert_equal({"foo" => "bar"}, record)
+        assert_equal({ "foo" => "bar" }, record)
       end
     end
 
-    test 'with tag_key' do
+    test "with tag_key" do
       messages = [
-        DummyMessageWithTagKey.new('tag1'),
-        DummyMessageWithTagKey.new('tag2'),
-        DummyMessage.new
+        DummyMessageWithTagKey.new("tag1"),
+        DummyMessageWithTagKey.new("tag2"),
+        DummyMessage.new,
       ]
       @subscriber.pull(immediate: true, max: 100).at_least(1) { messages }
       @subscriber.acknowledge(messages).at_least(1)
@@ -226,18 +270,18 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       d.run(expect_emits: 1, timeout: 3)
       emits = d.events
 
-      assert(3 <= emits.length)
+      assert(emits.length >= 3)
       # test tag
       assert_equal("tag1", emits[0][0])
       assert_equal("tag2", emits[1][0])
       assert_equal("test", emits[2][0])
       # test record
-      emits.each do |tag, time, record|
-        assert_equal({"foo" => "bar"}, record)
+      emits.each do |_tag, _time, record|
+        assert_equal({ "foo" => "bar" }, record)
       end
     end
 
-    test 'invalid messages with parse_error_action exception ' do
+    test "invalid messages with parse_error_action exception " do
       messages = Array.new(1, DummyInvalidMessage.new)
       @subscriber.pull(immediate: true, max: 100).at_least(1) { messages }
       @subscriber.acknowledge.times(0)
@@ -247,7 +291,7 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       assert_true d.events.empty?
     end
 
-    test 'with attributes' do
+    test "with attributes" do
       messages = Array.new(1, DummyMessage.new)
       @subscriber.pull(immediate: true, max: 100).at_least(1) { messages }
       @subscriber.acknowledge(messages).at_least(1)
@@ -256,14 +300,38 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       d.run(expect_emits: 1, timeout: 3)
       emits = d.events
 
-      assert(1 <= emits.length)
-      emits.each do |tag, time, record|
+      assert(emits.length >= 1)
+      emits.each do |tag, _time, record|
         assert_equal("test", tag)
-        assert_equal({"foo" => "bar", "attr_1" => "a"}, record)
+        assert_equal({ "foo" => "bar", "attr_1" => "a" }, record)
       end
     end
 
-    test 'invalid messages with parse_error_action warning' do
+    test "compressed batch of messages" do
+      original_messages = [
+        { foo: "bar" },
+        { baz: "qux" },
+      ]
+      messages = Array.new(1, DummyCompressedMessage.new(original_messages.map(&:to_json)))
+
+      @subscriber.pull(immediate: true, max: 100).once { messages }
+      @subscriber.acknowledge(messages).at_least(1)
+
+      d = create_driver
+      d.run(expect_emits: 1, timeout: 3)
+      emits = d.events
+
+      output_records = emits.map do |e|
+        # Pick out only the record element, i.e. ignore the time and tag
+        record = e[2]
+        # Convert the keys from strings to symbols, to allow for strict comparison
+        record.map { |k, v| [k.to_sym, v] }.to_h
+      end
+
+      assert_equal(original_messages, output_records)
+    end
+
+    test "invalid messages with parse_error_action warning" do
       messages = Array.new(1, DummyInvalidMessage.new)
       @subscriber.pull(immediate: true, max: 100).at_least(1) { messages }
       @subscriber.acknowledge(messages).at_least(1)
@@ -273,21 +341,21 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       assert_true d.events.empty?
     end
 
-    test 'retry if raised error' do
+    test "retry if raised error" do
       class UnknownError < StandardError
       end
-      @subscriber.pull(immediate: true, max: 100).at_least(2) { raise UnknownError.new('test') }
+      @subscriber.pull(immediate: true, max: 100).at_least(2) { raise UnknownError, "test" }
       @subscriber.acknowledge.times(0)
 
-      d = create_driver(CONFIG + 'pull_interval 0.5')
+      d = create_driver(CONFIG + "pull_interval 0.5")
       d.run(expect_emits: 1, timeout: 0.8)
 
       assert_equal(0.5, d.instance.pull_interval)
       assert_true d.events.empty?
     end
 
-    test 'retry if raised RetryableError on pull' do
-      @subscriber.pull(immediate: true, max: 100).at_least(2) { raise Google::Cloud::UnavailableError.new('TEST') }
+    test "retry if raised RetryableError on pull" do
+      @subscriber.pull(immediate: true, max: 100).at_least(2) { raise Google::Cloud::UnavailableError, "TEST" }
       @subscriber.acknowledge.times(0)
 
       d = create_driver("#{CONFIG}\npull_interval 0.5")
@@ -297,24 +365,24 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       assert_true d.events.empty?
     end
 
-    test 'retry if raised RetryableError on acknowledge' do
+    test "retry if raised RetryableError on acknowledge" do
       messages = Array.new(1, DummyMessage.new)
       @subscriber.pull(immediate: true, max: 100).at_least(2) { messages }
-      @subscriber.acknowledge(messages).at_least(2) { raise Google::Cloud::UnavailableError.new('TEST') }
+      @subscriber.acknowledge(messages).at_least(2) { raise Google::Cloud::UnavailableError, "TEST" }
 
       d = create_driver("#{CONFIG}\npull_interval 0.5")
       d.run(expect_emits: 2, timeout: 3)
       emits = d.events
 
       # not acknowledged, but already emitted to engine.
-      assert(2 <= emits.length)
-      emits.each do |tag, time, record|
+      assert(emits.length >= 2)
+      emits.each do |tag, _time, record|
         assert_equal("test", tag)
-        assert_equal({"foo" => "bar"}, record)
+        assert_equal({ "foo" => "bar" }, record)
       end
     end
 
-    test 'stop by http rpc' do
+    test "stop by http rpc" do
       messages = Array.new(1, DummyMessage.new)
       @subscriber.pull(immediate: true, max: 100).once { messages }
       @subscriber.acknowledge(messages).once
@@ -322,23 +390,23 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       d = create_driver("#{CONFIG}\npull_interval 1.0\nenable_rpc true")
       assert_equal(false, d.instance.instance_variable_get(:@stop_pull))
 
-      d.run {
-        http_get('/api/in_gcloud_pubsub/pull/stop')
+      d.run do
+        http_get("/api/in_gcloud_pubsub/pull/stop")
         sleep 0.75
         # d.run sleeps 0.5 sec
-      }
+      end
       emits = d.events
 
       assert_equal(1, emits.length)
       assert_true d.instance.instance_variable_get(:@stop_pull)
 
-      emits.each do |tag, time, record|
+      emits.each do |tag, _time, record|
         assert_equal("test", tag)
-        assert_equal({"foo" => "bar"}, record)
+        assert_equal({ "foo" => "bar" }, record)
       end
     end
 
-    test 'start by http rpc' do
+    test "start by http rpc" do
       messages = Array.new(1, DummyMessage.new)
       @subscriber.pull(immediate: true, max: 100).at_least(1) { messages }
       @subscriber.acknowledge(messages).at_least(1)
@@ -347,41 +415,41 @@ class GcloudPubSubInputTest < Test::Unit::TestCase
       d.instance.stop_pull
       assert_equal(true, d.instance.instance_variable_get(:@stop_pull))
 
-      d.run(expect_emits: 1, timeout: 3) {
-        http_get('/api/in_gcloud_pubsub/pull/start')
+      d.run(expect_emits: 1, timeout: 3) do
+        http_get("/api/in_gcloud_pubsub/pull/start")
         sleep 0.75
         # d.run sleeps 0.5 sec
-      }
+      end
       emits = d.events
 
-      assert_equal(true, emits.length > 0)
+      assert_equal(true, !emits.empty?)
       assert_false d.instance.instance_variable_get(:@stop_pull)
 
-      emits.each do |tag, time, record|
+      emits.each do |tag, _time, record|
         assert_equal("test", tag)
-        assert_equal({"foo" => "bar"}, record)
+        assert_equal({ "foo" => "bar" }, record)
       end
     end
 
-    test 'get status by http rpc when started' do
+    test "get status by http rpc when started" do
       d = create_driver("#{CONFIG}\npull_interval 1.0\nenable_rpc true")
       assert_false d.instance.instance_variable_get(:@stop_pull)
 
-      d.run {
-        res = http_get('/api/in_gcloud_pubsub/pull/status')
-        assert_equal({"ok" => true, "status" => "started"}, JSON.parse(res.body))
-      }
+      d.run do
+        res = http_get("/api/in_gcloud_pubsub/pull/status")
+        assert_equal({ "ok" => true, "status" => "started" }, JSON.parse(res.body))
+      end
     end
 
-    test 'get status by http rpc when stopped' do
+    test "get status by http rpc when stopped" do
       d = create_driver("#{CONFIG}\npull_interval 1.0\nenable_rpc true")
       d.instance.stop_pull
       assert_true d.instance.instance_variable_get(:@stop_pull)
 
-      d.run {
-        res = http_get('/api/in_gcloud_pubsub/pull/status')
-        assert_equal({"ok" => true, "status" => "stopped"}, JSON.parse(res.body))
-      }
+      d.run do
+        res = http_get("/api/in_gcloud_pubsub/pull/status")
+        assert_equal({ "ok" => true, "status" => "stopped" }, JSON.parse(res.body))
+      end
     end
   end
 end
