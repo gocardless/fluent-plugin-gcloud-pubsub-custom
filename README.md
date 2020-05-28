@@ -215,10 +215,11 @@ performance:
 - `fluentd_output_gcloud_pubsub_messages_published_per_batch`
   - Histogram: Number of records published to Pub/Sub per buffer flush
 - `fluentd_output_gcloud_pubsub_messages_published_bytes`
-  - Histogram: Total size in bytes of the records published to Pub/Sub
+  - Histogram: Total size in bytes of the records published to Pub/Sub,
+    **before** compression.
 - `fluentd_output_gcloud_pubsub_messages_compression_duration_seconds`
   - Histogram: Time taken to compress a batch of messages
-- `fluentd_output_gcloud_pubsub_messages_messages_compressed_size_per_original_size_ratio`
+- `fluentd_output_gcloud_pubsub_messages_compressed_size_per_original_size_ratio`
   - Histogram: Compression ratio achieved on a batch of messages, expressed in
     terms of space saved.
 
