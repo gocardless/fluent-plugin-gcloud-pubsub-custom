@@ -20,7 +20,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency "google-cloud-pubsub", "~> 0.30.0"
 
   # Use the same version constraint as fluent-plugin-prometheus currently specifies
-  gem.add_runtime_dependency "prometheus-client", "< 0.10"
+  gem.add_runtime_dependency "prometheus-client", "< 2.2"
 
   gem.add_development_dependency "bundler"
   gem.add_development_dependency "pry"
