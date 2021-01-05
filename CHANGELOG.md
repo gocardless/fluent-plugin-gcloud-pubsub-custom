@@ -1,5 +1,9 @@
 ## ChangeLog
 
+### Release 1.3.3 - 2021/01/05
+
+- Add support for payload compression with `compress_batches`
+
 ### Release 1.3.2 - 2019/08/16
 
 - Input plugin
