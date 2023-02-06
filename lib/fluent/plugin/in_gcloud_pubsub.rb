@@ -138,7 +138,6 @@ module Fluent::Plugin
           ::Prometheus::Client.registry.histogram(
             :"#{@metric_prefix}_messages_pulled",
             docstring: "Number of Pub/Sub messages pulled by the subscriber on each invocation",
-            labels: {},
             buckets: [0, 1, 10, 50, 100, 250, 500, 1000],
           )
         end
@@ -148,7 +147,6 @@ module Fluent::Plugin
           ::Prometheus::Client.registry.histogram(
             :"#{@metric_prefix}_messages_pulled_bytes",
             docstring: "Total size in bytes of the Pub/Sub messages pulled by the subscriber on each invocation",
-            labels: {},
             buckets: [100, 1000, 10_000, 100_000, 1_000_000, 5_000_000, 10_000_000],
           )
         end
@@ -158,7 +156,6 @@ module Fluent::Plugin
           ::Prometheus::Client.registry.counter(
             :"#{@metric_prefix}_pull_errors_total",
             docstring: "Errors encountered while pulling or processing messages",
-            labels:{},
           )
         end
     end
