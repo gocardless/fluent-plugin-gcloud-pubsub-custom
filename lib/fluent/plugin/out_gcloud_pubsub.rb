@@ -102,10 +102,11 @@ module Fluent::Plugin
         Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{@metric_prefix}_compression_enabled") do
           ::Prometheus::Client.registry.gauge(
             :"#{@metric_prefix}_compression_enabled",
-            docstring: "Whether compression/batching is enabled"
+            docstring: "Whether compression/batching is enabled",
+            labels: [:topic]
           )
         end
-      @compression_enabled.set(@compress_batches ? 1 : 0, common_labels)
+      @compression_enabled.set(@compress_batches ? 1 : 0, labels: common_labels)
     end
     # rubocop:enable Metrics/MethodLength
 
@@ -169,8 +170,8 @@ module Fluent::Plugin
       size = messages.map(&:bytesize).inject(:+)
       log.debug "send message topic:#{topic} length:#{messages.length} size:#{size}"
 
-      @messages_published.observe(common_labels, messages.length)
-      @bytes_published.observe(common_labels, size)
+      @messages_published.observe(messages.length, labels: common_labels)
+      @bytes_published.observe(size, labels: common_labels)
 
       @publisher.publish(topic, messages, @compress_batches)
     end
