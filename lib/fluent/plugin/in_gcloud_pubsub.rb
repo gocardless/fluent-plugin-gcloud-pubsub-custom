@@ -137,9 +137,9 @@ module Fluent::Plugin
         Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{@metric_prefix}_messages_pulled") do
           ::Prometheus::Client.registry.histogram(
             :"#{@metric_prefix}_messages_pulled",
-            "Number of Pub/Sub messages pulled by the subscriber on each invocation",
-            {},
-            [0, 1, 10, 50, 100, 250, 500, 1000],
+            docstring: "Number of Pub/Sub messages pulled by the subscriber on each invocation",
+            labels: {},
+            buckets: [0, 1, 10, 50, 100, 250, 500, 1000],
           )
         end
 
@@ -147,9 +147,9 @@ module Fluent::Plugin
         Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{@metric_prefix}_messages_pulled_bytes") do
           ::Prometheus::Client.registry.histogram(
             :"#{@metric_prefix}_messages_pulled_bytes",
-            "Total size in bytes of the Pub/Sub messages pulled by the subscriber on each invocation",
-            {},
-            [100, 1000, 10_000, 100_000, 1_000_000, 5_000_000, 10_000_000],
+            docstring: "Total size in bytes of the Pub/Sub messages pulled by the subscriber on each invocation",
+            labels: {},
+            buckets: [100, 1000, 10_000, 100_000, 1_000_000, 5_000_000, 10_000_000],
           )
         end
 
@@ -157,8 +157,8 @@ module Fluent::Plugin
         Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{@metric_prefix}_pull_errors_total") do
           ::Prometheus::Client.registry.counter(
             :"#{@metric_prefix}_pull_errors_total",
-            "Errors encountered while pulling or processing messages",
-            {},
+            docstring: "Errors encountered while pulling or processing messages",
+            labels:{},
           )
         end
     end
