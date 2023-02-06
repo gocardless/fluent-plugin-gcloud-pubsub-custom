@@ -48,6 +48,7 @@ module Fluent
               # above 2x (0.5/50%), so bias the buckets towards the higher end
               # of the range.
               buckets: [0, 0.25, 0.5, 0.75, 0.85, 0.9, 0.95, 0.975, 1],
+              labels: [:topic, :algorithm]
             )
           end
 
@@ -57,6 +58,7 @@ module Fluent
               :"#{metric_prefix}_messages_compression_duration_seconds",
               docstring: "Time taken to compress a batch of messages",
               buckets: [0, 0.0001, 0.0005, 0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1],
+              labels: [:topic, :algorithm]
             )
           end
         # rubocop:enable Layout/LineLength
