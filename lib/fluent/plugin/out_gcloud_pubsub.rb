@@ -85,6 +85,7 @@ module Fluent::Plugin
           ::Prometheus::Client.registry.histogram(
             :"#{@metric_prefix}_messages_published_per_batch",
             docstring: "Number of records published to Pub/Sub per buffer flush",
+            labels: [:topic],
             buckets: [1, 10, 50, 100, 250, 500, 1000],
           )
         end
@@ -94,6 +95,7 @@ module Fluent::Plugin
           ::Prometheus::Client.registry.histogram(
             :"#{@metric_prefix}_messages_published_bytes",
             docstring: "Total size in bytes of the records published to Pub/Sub",
+            labels: [:topic],
             buckets: [100, 1000, 10_000, 100_000, 1_000_000, 5_000_000, 10_000_000],
           )
         end
@@ -103,7 +105,7 @@ module Fluent::Plugin
           ::Prometheus::Client.registry.gauge(
             :"#{@metric_prefix}_compression_enabled",
             docstring: "Whether compression/batching is enabled",
-            labels: [:topic]
+            labels: [:topic],
           )
         end
       @compression_enabled.set(@compress_batches ? 1 : 0, labels: common_labels)
