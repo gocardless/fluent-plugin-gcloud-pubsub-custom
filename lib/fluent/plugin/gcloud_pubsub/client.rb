@@ -43,12 +43,11 @@ module Fluent
           Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{metric_prefix}_messages_compressed_size_per_original_size_ratio") do
             ::Prometheus::Client.registry.histogram(
               :"#{metric_prefix}_messages_compressed_size_per_original_size_ratio",
-              "Compression ratio achieved on a batch of messages",
-              {},
+              docstring: "Compression ratio achieved on a batch of messages",
               # We expect compression for even a single message to be typically
               # above 2x (0.5/50%), so bias the buckets towards the higher end
               # of the range.
-              [0, 0.25, 0.5, 0.75, 0.85, 0.9, 0.95, 0.975, 1],
+              buckets: [0, 0.25, 0.5, 0.75, 0.85, 0.9, 0.95, 0.975, 1],
             )
           end
 
@@ -56,9 +55,8 @@ module Fluent
           Fluent::GcloudPubSub::Metrics.register_or_existing(:"#{metric_prefix}_messages_compression_duration_seconds") do
             ::Prometheus::Client.registry.histogram(
               :"#{metric_prefix}_messages_compression_duration_seconds",
-              "Time taken to compress a batch of messages",
-              {},
-              [0, 0.0001, 0.0005, 0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1],
+              docstring: "Time taken to compress a batch of messages",
+              buckets: [0, 0.0001, 0.0005, 0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1],
             )
           end
         # rubocop:enable Layout/LineLength
@@ -118,15 +116,16 @@ module Fluent
         end
 
         @compression_duration.observe(
-          { topic: topic_name, algorithm: COMPRESSION_ALGORITHM_ZLIB },
           duration,
+          labels: { topic: topic_name, algorithm: COMPRESSION_ALGORITHM_ZLIB },
         )
 
         compressed_size = compressed_messages.bytesize
         @compression_ratio.observe(
-          { topic: topic_name, algorithm: COMPRESSION_ALGORITHM_ZLIB },
           # If original = 1MiB and compressed = 256KiB; then metric value = 0.75 = 75% when plotted
           1 - compressed_size.to_f / original_size,
+          labels: { topic: topic_name, algorithm: COMPRESSION_ALGORITHM_ZLIB },
+
         )
 
         [compressed_messages, { "compression_algorithm": COMPRESSION_ALGORITHM_ZLIB }]
