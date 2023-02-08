@@ -59,7 +59,6 @@ module Fluent::Plugin
       config_set_default :@type, DEFAULT_FORMATTER_TYPE
     end
 
-    # rubocop:disable Metrics/MethodLength
     def configure(conf)
       compat_parameters_convert(conf, :buffer, :formatter)
       super
@@ -110,7 +109,6 @@ module Fluent::Plugin
         end
       @compression_enabled.set(@compress_batches ? 1 : 0, labels: common_labels)
     end
-    # rubocop:enable Metrics/MethodLength
 
     def start
       super

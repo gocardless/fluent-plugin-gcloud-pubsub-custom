@@ -5,7 +5,6 @@ require_relative "../helper"
 require 'fluent/plugin/compressable'
 require "zlib"
 
-require_relative "../test_helper"
 require "fluent/test/driver/output"
 require "fluent/test/helpers"
 require "json"

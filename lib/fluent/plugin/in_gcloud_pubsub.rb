@@ -112,7 +112,6 @@ module Fluent::Plugin
       end
     end
 
-    # rubocop:disable Metrics/MethodLength
     def configure(conf)
       compat_parameters_convert(conf, :parser)
       super
@@ -159,7 +158,6 @@ module Fluent::Plugin
           )
         end
     end
-    # rubocop:enable Metrics/MethodLength
 
     def start
       super
