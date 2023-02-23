@@ -6,6 +6,5 @@
 
 *.gem
 .bundle
-Gemfile.lock
 vendor
 .ruby-version
