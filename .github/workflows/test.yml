@@ -1,0 +1,31 @@
+name: Test
+
+on:
+  push:
+    branches: [ master, gocardless ]
+  pull_request:
+    branches: [ master, gocardless ]
+
+concurrency:
+  # running pipeline per workflow per PR
+  group: ${{ github.head_ref || github.run_id }}-${{ github.workflow }}
+  # Running a new pipeline will cancel any running pipelines that belong to the above group
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby-version: [ '3.1' ]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+      - name: Run tests
+        run: bundle exec rake test
