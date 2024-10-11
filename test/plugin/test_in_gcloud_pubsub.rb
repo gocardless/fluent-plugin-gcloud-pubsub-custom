@@ -7,13 +7,13 @@ require_relative "../test_helper"
 require "fluent/test/driver/input"
 
 class GcloudPubSubInputTest < Test::Unit::TestCase
-  CONFIG = %(
+  CONFIG = %[
       tag test
       project project-test
       topic topic-test
       subscription subscription-test
       key key-test
-  )
+  ]
 
   DEFAULT_HOST = "127.0.0.1"
   DEFAULT_PORT = 24_680
