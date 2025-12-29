@@ -8,7 +8,7 @@ Gem::Specification.new do |gem|
   gem.license     = "MIT"
   gem.homepage    = "https://github.com/mia-0032/fluent-plugin-gcloud-pubsub-custom"
   gem.summary     = gem.description
-  gem.version     = "1.3.2"
+  gem.version     = "1.3.3"
   gem.authors     = ["Yoshihiro MIYAI"]
   gem.email       = "msparrow17@gmail.com"
   gem.files       = `git ls-files`.split("\n")
@@ -17,7 +17,7 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
 
   gem.add_runtime_dependency "fluentd", [">= 0.14.15", "< 2"]
-  gem.add_runtime_dependency "google-cloud-pubsub", "~> 2.19.0"
+  gem.add_runtime_dependency "google-cloud-pubsub", "~> 3.1"
 
   # Use the same version constraint as fluent-plugin-prometheus currently specifies
   gem.add_runtime_dependency "prometheus-client", ">= 2.1.0"
